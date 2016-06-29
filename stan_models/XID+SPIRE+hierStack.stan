@@ -58,7 +58,6 @@ parameters {
   real <lower=0.0,upper=4> stack_sigma_pmw;//dispersion of highz sample
   real <lower=0,upper=10> stack_mu_plw;//mean flux of highz sample
   real <lower=0.0,upper=4> stack_sigma_plw;//dispersion of highz sample
-
 }
 
 model {
@@ -74,8 +73,14 @@ model {
   vector[nsrc] f_vec_psw;//vector of source fluxes
   vector[nsrc] f_vec_pmw;//vector of source fluxes
   vector[nsrc] f_vec_plw;//vector of source fluxes
+
+
+  vector[nstack] psw_st;
+  vector[nstack] pmw_st;
+  vector[nstack] plw_st;
+
   // Transform to normal space. As I am sampling variable then transforming I don't need a Jacobian adjustment
-  for (n in 1:nsrc) {
+  for (n in 1:nsrc-nstack) {
     f_vec_psw[n] <- f_low_lim_psw[n]+(f_up_lim_psw[n]-f_low_lim_psw[n])*src_f_psw[n];
     f_vec_pmw[n] <- f_low_lim_pmw[n]+(f_up_lim_pmw[n]-f_low_lim_pmw[n])*src_f_pmw[n];
     f_vec_plw[n] <- f_low_lim_plw[n]+(f_up_lim_plw[n]-f_low_lim_plw[n])*src_f_plw[n];
@@ -83,23 +88,28 @@ model {
 
   }
   //Prior on background 
-  bkg_psw ~normal(bkg_prior_psw,bkg_prior_sig_psw);
-  bkg_pmw ~normal(bkg_prior_pmw,bkg_prior_sig_pmw);
-  bkg_plw ~normal(bkg_prior_plw,bkg_prior_sig_plw);
+  bkg_psw ~normal(0,1);
+  bkg_pmw ~normal(0,1);
+  bkg_plw ~normal(0,1);
 
   //Hierarchical Stacking priors
   
   for (n in 1:nstack) {
-    f_vec_psw[nsrc-nstack+n] ~lognormal(stack_mu_psw,stack_sigma_psw);//distribution of flux from high z sample
-    f_vec_pmw[nsrc-nstack+n] ~lognormal(stack_mu_pmw,stack_sigma_pmw);//distribution of flux from high z sample
-    f_vec_plw[nsrc-nstack+n] ~lognormal(stack_mu_plw,stack_sigma_plw);//distribution of flux from high z sample
+
+    psw_st~normal(0,1);
+    pmw_st~normal(0,1);
+    plw_st~normal(0,1);
+
+    f_vec_psw[nsrc-nstack+n] <-pow(10,stack_mu_psw+stack_sigma_psw*psw_st);//distribution of flux from high z sample
+    f_vec_pmw[nsrc-nstack+n] <-pow(10,stack_mu_pmw+stack_sigma_pmw*pmw_st);//distribution of flux from high z sample
+    f_vec_plw[nsrc-nstack+n] <-pow(10,stack_mu_plw+stack_sigma_plw*plw_st);//distribution of flux from high z sample
   }
 
  
    
   // Create model maps (i.e. db_hat = A*f) using sparse multiplication
   for (k in 1:npix_psw) {
-    db_hat_psw[k] <- bkg_psw;
+    db_hat_psw[k] <- bkg_psw*bkg_prior_sig_psw+bkg_prior_psw;
     sigma_tot_psw[k]<-sqrt(square(sigma_psw[k])+square(sigma_conf_psw));
   }
   for (k in 1:nnz_psw) {
@@ -107,7 +117,7 @@ model {
       }
 
   for (k in 1:npix_pmw) {
-    db_hat_pmw[k] <- bkg_pmw;
+    db_hat_pmw[k] <- bkg_pmw*bkg_prior_sig_pmw+bkg_prior_pmw;
     sigma_tot_pmw[k]<-sqrt(square(sigma_pmw[k])+square(sigma_conf_pmw));
   }
   for (k in 1:nnz_pmw) {
@@ -115,7 +125,7 @@ model {
       }
 
   for (k in 1:npix_plw) {
-    db_hat_plw[k] <- bkg_plw;
+    db_hat_plw[k] <- bkg_plw*bkg_prior_sig_plw+bkg_prior_plw;
     sigma_tot_plw[k]<-sqrt(square(sigma_plw[k])+square(sigma_conf_plw));
   }
   for (k in 1:nnz_plw) {
