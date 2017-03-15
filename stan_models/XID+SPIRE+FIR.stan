@@ -11,8 +11,6 @@ data {
   vector[nnz_psw] Val_psw;//non neg values in image matrix
   int Row_psw[nnz_psw];//Rows of non neg valies in image matrix
   int Col_psw[nnz_psw];//Cols of non neg values in image matrix
-  vector[nsrc] f_low_lim_psw;//upper limit of flux 
-  vector[nsrc] f_up_lim_psw;//upper limit of flux 
   //----PMW----
   int<lower=0> npix_pmw;//number of pixels
   int<lower=0> nnz_pmw; //number of non neg entries in A
@@ -23,8 +21,6 @@ data {
   vector[nnz_pmw] Val_pmw;//non neg values in image matrix
   int Row_pmw[nnz_pmw];//Rows of non neg valies in image matrix
   int Col_pmw[nnz_pmw];//Cols of non neg values in image matrix
-  vector[nsrc] f_low_lim_pmw;//upper limit of flux (in log10)
-  vector[nsrc] f_up_lim_pmw;//upper limit of flux (in log10)
   //----PLW----
   int<lower=0> npix_plw;//number of pixels
   int<lower=0> nnz_plw; //number of non neg entries in A
@@ -35,22 +31,76 @@ data {
   vector[nnz_plw] Val_plw;//non neg values in image matrix
   int Row_plw[nnz_plw];//Rows of non neg valies in image matrix
   int Col_plw[nnz_plw];//Cols of non neg values in image matrix
-  vector[nsrc] f_low_lim_plw;//upper limit of flux 
-  vector[nsrc] f_up_lim_plw;//upper limit of flux 
+
+
+  //----Filter information-----------------------------
+  int Ntrans_250; // number of transmission points in filter
+  vector[Ntrans_250] filt_trans_250;
+  vector[Ntrans_250] filt_wave_250;
+  int Ntrans_350; // number of transmission points in filter
+  vector[Ntrans_350] filt_trans_350;
+  vector[Ntrans_350] filt_wave_350;
+  int Ntrans_500; // number of transmission points in filter
+  vector[Ntrans_500] filt_trans_500;
+  vector[Ntrans_500] filt_wave_500;
 
 }
 
+transformed data {
+  real k_B;
+  real c;
+  real h;
+  vector[Ntrans_250] filt_nu_250;
+  vector[Ntrans_350] filt_nu_350;
+  vector[Ntrans_500] filt_nu_500;
+  k_B=1.3806488E-23;
+  c=3.0E8;
+  h=6.62606957E-34;
+
+
+  for (i in 1:Ntrans_250) {
+    filt_nu_250[i]=c/(filt_wave_250[i]*1E-6);
+  }
+  for (i in 1:Ntrans_350) {
+    filt_nu_350[i]=c/(filt_wave_350[i]*1E-6);
+  }
+  for (i in 1:Ntrans_500) {
+    filt_nu_500[i]=c/(filt_wave_500[i]*1E-6);
+  }
+}
+
+
+
 
 parameters {
-  vector<lower=0.0,upper=1.0>[nsrc] src_f_psw;//source vector
   real bkg_psw;//background
-  vector<lower=0.0,upper=1.0>[nsrc] src_f_pmw;//source vector
   real bkg_pmw;//background
-  vector<lower=0.0,upper=1.0>[nsrc] src_f_plw;//source vector
   real bkg_plw;//background
   real<lower=0.0> sigma_conf_psw;
   real<lower=0.0> sigma_conf_pmw;
   real<lower=0.0> sigma_conf_plw;
+
+  real<lower=0.0,upper=10.0> Nbb[nsrc];
+  real<lower=20,upper=90> T[nsrc];
+  real<lower=1.6,upper=1.7> Beta[nsrc];
+  real<lower=1.5,upper=2.5> alpha[nsrc];
+  real<lower=0.001,upper=5> z[nsrc];
+
+}
+  transformed parameters {
+  vector[nsrc] f_vec_psw;//vector of source fluxes
+  vector[nsrc] f_vec_pmw;//vector of source fluxes
+  vector[nsrc] f_vec_plw;//vector of source fluxes
+    vector[nsrc] L_dust;
+
+
+  for (i in 1:nsrc){
+
+    f_vec_psw[i]=SPIRE_obs(Nbb[i],alpha[i],Beta[i],T[i],filt_wave_250,filt_nu_250, filt_trans_250,Ntrans_250,z[i],c,h,k_B,250)*1E-3;
+    f_vec_pmw[i]=SPIRE_obs(Nbb[i],alpha[i],Beta[i],T[i],filt_wave_350,filt_nu_350, filt_trans_350,Ntrans_350,z[i],c,h,k_B,350)*1E-3;
+    f_vec_plw[i]=SPIRE_obs(Nbb[i],alpha[i],Beta[i],T[i],filt_wave_500,filt_nu_500, filt_trans_500,Ntrans_500,z[i],c,h,k_B,500)*1E-3;
+    L_dust[i]=LIR(Nbb[i],alpha[i],Beta[i],T[i]);
+}
 
 }
 
@@ -64,17 +114,8 @@ model {
   vector[npix_pmw] sigma_tot_pmw;
   vector[npix_plw] sigma_tot_plw;
 
-  vector[nsrc] f_vec_psw;//vector of source fluxes
-  vector[nsrc] f_vec_pmw;//vector of source fluxes
-  vector[nsrc] f_vec_plw;//vector of source fluxes
-  // Transform to normal space. As I am sampling variable then transforming I don't need a Jacobian adjustment
-  for (n in 1:nsrc) {
-    f_vec_psw[n] <- f_low_lim_psw[n]+(f_up_lim_psw[n]-f_low_lim_psw[n])*src_f_psw[n];
-    f_vec_pmw[n] <- f_low_lim_pmw[n]+(f_up_lim_pmw[n]-f_low_lim_pmw[n])*src_f_pmw[n];
-    f_vec_plw[n] <- f_low_lim_plw[n]+(f_up_lim_plw[n]-f_low_lim_plw[n])*src_f_plw[n];
+  L_dust ~ normal(10,2)
 
-
-  }
 
  //Prior on background 
   bkg_psw ~normal(bkg_prior_psw,bkg_prior_sig_psw);

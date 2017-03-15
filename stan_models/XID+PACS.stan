@@ -56,6 +56,10 @@ model {
   //Prior on background 
   bkg_psw ~normal(bkg_prior_psw,bkg_prior_sig_psw);
   bkg_pmw ~normal(bkg_prior_pmw,bkg_prior_sig_pmw);
+
+  //Prior on sources
+  src_f_psw ~cauchy(0,0.1);
+  src_f_pmw ~cauchy(0,0.1);
  
    
   // Create model maps (i.e. db_hat = A*f) using sparse multiplication

@@ -17,7 +17,11 @@ data {
 parameters {
   vector<lower=0.0,upper=1.0>[nsrc] src_f_psw;//source vector
   real bkg_psw;//background
+}
+transformed parameters {
   real<lower=0.0,upper=0.00001> sigma_conf_psw;
+  sigma_conf_psw=0.0;
+
 }
 
 model {
@@ -27,7 +31,7 @@ model {
     
   // Transform to normal space. As I am sampling variable then transforming I don't need a Jacobian adjustment
   for (n in 1:nsrc) {
-    f_vec_psw[n] <- pow(10.0,f_low_lim_psw[n]+(f_up_lim_psw[n]-f_low_lim_psw[n])*src_f_psw[n]);
+    f_vec_psw[n] <- f_low_lim_psw[n]+(f_up_lim_psw[n]-f_low_lim_psw[n])*src_f_psw[n];
 
 
 

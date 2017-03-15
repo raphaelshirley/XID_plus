@@ -81,4 +81,10 @@ functions {
     return S_250;
   }
  
-}
+  real SPIRE_obs_no_filt(real Nbb, real alpha, real Beta, real T, real z,real c, real h, real k_B, real band){
+    real S_250;
+
+    S_250=(1.0+z)*Casey(Nbb,alpha,Beta,T,band/(1.0+z),c,h,k_B)/(4.0*pi() * square(100.0*z_to_DL(z))); //1E23convert to Jy
+
+    return S_250;
+}}
